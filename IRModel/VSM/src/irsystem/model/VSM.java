@@ -35,8 +35,10 @@ public class VSM {
 	public void train() {
 		
 	}
-
-	public ArrayList<String> search(Query query, int result_size) {
+	public ArrayList<String> search(Query query, int result_size){
+		return search(query, result_size, this.relevance_feedback);
+	}
+	public ArrayList<String> search(Query query, int result_size, boolean search_feedback) {
 		// parse query
 		String number = query.getNumber();
 		String title = query.getTitle();
@@ -53,7 +55,7 @@ public class VSM {
 
 		// score article
 		HashMap<Integer, Double> article_score = new HashMap<Integer, Double>();
-		score_article(article_score, title_tokens, 1.0);
+		score_article(article_score, title_tokens, 0.5);
 		score_article(article_score, concepts_tokens, 1.0);
 		
 		// sort score map
@@ -67,8 +69,8 @@ public class VSM {
 		};
 		Collections.sort(score_list, entry_comparator);
 
-		// relevance feedback if relevance_feedback == true
-		if (this.relevance_feedback) {
+		// relevance feedback if search_feedback == true
+		if (search_feedback) {
 			ArrayList<String> feedback_article_id_list = new ArrayList<String>();
 			for (int i = 0; i < score_list.size() && i < this.feedback_article_number; i++) {
 				int article_idx = score_list.get(i).getKey();
@@ -81,7 +83,7 @@ public class VSM {
 			Query modified_query = relevance_feedback(query, feedback_article_id_list);
 			
 			// search
-			return search(modified_query, result_size);
+			return search(modified_query, result_size, false);
 		}
 
 		// top score to answer_list
@@ -113,10 +115,11 @@ public class VSM {
 				Integer article_idx = tuple.x;
 				Integer token_appear = tuple.y;
 				Integer total_article = corpus.getFileMap().getSize();
-				Double tf = 3 + Math.log(token_appear.doubleValue());
-				Double idf = Math.log(30 + total_article.doubleValue() / invliest.size());
+				Double tf = Math.log(1 + Math.log(1 + token_appear.doubleValue()));
+				Double okapi_bm25_tf = (1.2 + 1) * tf / (tf + 1.2);
+				Double idf = Math.log(1 + total_article.doubleValue() / invliest.size());
 				article_score.put(article_idx,
-						article_score.getOrDefault(article_idx, 0.0) + weight*tf*idf);
+						article_score.getOrDefault(article_idx, 0.0) + weight*okapi_bm25_tf*idf);
 			}
 		}
 	}
